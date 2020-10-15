@@ -1,0 +1,57 @@
+{
+    "variables": {
+        "html_file": "",
+        "aws_access_key": "{{env `AWS_ACCESS_KEY`}}",
+        "aws_secret_key": "{{env `AWS_SECRET_KEY`}}"
+      },
+      "builders": [
+        {
+          "type": "amazon-ebs",
+          "access_key": "{{user `aws_access_key`}}",
+          "secret_key": "{{user `aws_secret_key`}}",
+          "region": "us-east-2",
+          "source_ami_filter": {
+            "filters": {
+              "virtualization-type": "hvm",
+              "name": "ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*",
+              "root-device-type": "ebs"
+            },
+            "owners": ["099720109477"],
+            "most_recent": true
+          },
+          "instance_type": "t2.micro",
+          "ssh_username": "ubuntu",
+          "ami_name": "packer-example {{timestamp}}"
+        }
+      ],
+    "provisioners": [
+        {
+          "type": "shell",
+          "inline": [
+            "sudo apt-get install -y apache2",
+            "sudo mkdir /lab",
+            "sudo chmod a+rwx /lab"
+          ]
+        },
+        {
+          "type": "file",
+          "source": "{{user `html_file`}}",
+          "destination": "/lab/index.html"
+        },
+        {
+          "type": "shell",
+          "inline": [
+            "sudo cp /lab/index.html /var/www/html"
+          ]
+        }
+    ],
+    "post-processors": [
+        [
+          {
+            "output": "manifest.json",
+            "strip_path": true,
+            "type": "manifest"
+          }
+        ]
+      ]
+}

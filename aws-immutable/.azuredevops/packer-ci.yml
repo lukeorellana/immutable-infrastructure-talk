@@ -1,0 +1,71 @@
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - images/*
+  
+variables:
+- group: AWS
+
+stages:
+- stage: Build
+  jobs:
+  - job: 
+    steps:
+      - task: PackerTool@0
+        inputs:
+          version:
+      
+      - task: Bash@3
+        inputs:
+          targetType: 'inline'
+          script: 'ls $(Build.SourcesDirectory)'
+
+      - task: Packer@1
+        inputs:
+          connectedServiceType: 'aws'
+          connectedServiceAWS: 'aws'
+          templatePath: '$(Build.SourcesDirectory)/images/image.json'
+          command: 'build'
+          variables: 'html_file=$(Build.SourcesDirectory)/images/index.html'
+          force: true
+      
+      - task: Bash@3
+        inputs:
+          targetType: 'inline'
+          script: 'ls'
+
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: '$(Build.SourcesDirectory)'
+          ArtifactName: 'manifest'
+          publishLocation: 'Container'
+
+- stage: Deploy
+  jobs:
+  - job: 
+    steps:
+      - task: DownloadBuildArtifacts@0
+        inputs:
+          buildType: 'current'
+          downloadType: 'single'
+          downloadPath: '$(System.ArtifactsDirectory)'
+          artifactName: 'manifest'
+      
+      - task: TerraformInstaller@0
+        inputs:
+          terraformVersion: '0.12.23'
+      
+      - task: Bash@3
+        inputs:
+          targetType: 'inline'
+          script: |
+            AMI_ID=$(jq -r '.builds[-1].artifact_id' $(System.ArtifactsDirectory)/manifest/manifest.json | cut -d ":" -f2)
+            echo $AMI_ID
+            terraform init $(Build.SourcesDirectory)/server
+            terraform  apply -auto-approve -var "ami=$AMI_ID" $(Build.SourcesDirectory)/server
+        env:
+            AWS_ACCESS_KEY: $(AWS_ACCESS_KEY)
+            AWS_SECRET_KEY: $(AWS_SECRET_KEY)
