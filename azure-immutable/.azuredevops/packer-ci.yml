@@ -1,0 +1,39 @@
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - images/*
+  
+variables:
+- group: Azure
+
+stages:
+- stage: Build
+  jobs:
+  - job: 
+    steps:
+      - task: PackerTool@0
+        inputs:
+          version:
+      
+      - task: Bash@3
+        inputs:
+          targetType: 'inline'
+          script: 'ls $(Build.SourcesDirectory)'
+
+      - task: Packer@1
+        inputs:
+          connectedServiceType: 'azure'
+          azureSubscription: 'Azure'
+          templatePath: '$(Build.SourcesDirectory)/images/image.json'
+          command: 'build'
+          force: true
+          variables: 'html_file=$(Build.SourcesDirectory)/images/index.html'
+
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: '$(Build.SourcesDirectory)'
+          ArtifactName: 'manifest'
+          publishLocation: 'Container'
